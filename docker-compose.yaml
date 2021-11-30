@@ -1,0 +1,81 @@
+version: '3.3'
+
+networks: 
+    app_net:
+        driver: bridge
+
+volumes: 
+    mongodb_vol:
+    postgresdb_vol:
+
+services:
+    mongodb:
+        image: mongo:4.4.6
+        ports:
+            - 27017:27017
+        volumes: 
+             - mongodb_vol:/data/db
+        networks:
+            - app_net
+        environment:
+            MONGO_INITDB_ROOT_USERNAME: mongouser
+            MONGO_INITDB_ROOT_PASSWORD: mongopwd
+            MONGO_INITDB_DATABASE: admin
+
+    movies:
+        image: breinerhenrique/rotten-potatoes-movies:v1
+        ports:
+            - 8181:8181
+        networks:
+            - app_net
+        depends_on:
+            - mongodb
+        environment:
+            MONGODB_URI: mongodb://mongouser:mongopwd@mongodb:27017/admin        
+
+    postgres:
+        image: postgres
+        ports:
+            - 5432:5432
+        volumes: 
+            - postgresdb_vol:/var/lib/postgres/data
+        networks:
+            - app_net
+        environment:
+            POSTGRES_USER: pguser
+            POSTGRES_PASSWORD: Pg@123
+            POSTGRES_DB: pgDB
+
+    review:
+        image: breinerhenrique/rotten-potatoes-review:v3
+        ports:
+            - 8282:80
+        networks:
+            - app_net
+        depends_on:
+            - postgres
+        environment:
+            ConnectionStrings__MyConnection: Host=postgres;Database=pgDB;Username=pguser;Password=Pg@123
+
+    api:
+        image: breinerhenrique/rotten-potatoes:v4
+        ports:
+            - 8080:5000
+        networks:
+            - app_net
+        depends_on:
+            - movies
+            - review
+            - mongodb
+        environment:
+            MOVIE_SERVICE_URI: http://movies:8181
+            REVIEW_SERVICE_URI: http://review:80
+            MONGODB_DB: admin
+            MONGODB_HOST: mongodb
+            MONGODB_PORT: 27017
+            MONGODB_USERNAME: mongouser
+            MONGODB_PASSWORD: mongopwd
+        
+
+
+  
